@@ -14,7 +14,7 @@ Runtime may take up to 20 minutes. Progress can be tracked from the terminal.
 """
 
 # File Directories
-INPUT_FILES = 'local' # Replace 'github' with 'local' if using files on your local system and ensure correct directory for your files (line 18)
+INPUT_FILES = 'github' # Replace 'github' with 'local' if using files on your local system and ensure correct directory for your files (line 18)
 LOCAL_FILE_DIRECTORY = "C:/Users/ed_ba/OneDrive - The University of Manchester/Year 3/Project/finite_element_data/original_data/github_files/" # (if files are already on the local system)
 
 # Adjust the following directory to the location where you would like the files to be stored
