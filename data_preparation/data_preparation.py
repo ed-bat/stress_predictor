@@ -1,9 +1,9 @@
 """
 data_preparation.py
 
-This script is used to retrieve the full stress data, creating two sets of data files to be used for training, validation, and testing of ML models.
-The first set entails a 2D and a 3D data file with von Mises stress values (for the initial univariate ML models).
-The second set entails a 2D and a 3D data file with the original six stress components (to be used by the multivariate ML models).
+This script is used to retrieve the full stress data, creating two data files to be used for training, validation, and testing of ML models.
+The first file contains data for a 2D cross-section in the YZ plane, with the section's x-coordinate specified in line 23.
+The second file contains the full stress data (please note that this file will be too large to open via Excel).
 
 It is assumed that the user will be retrieving the data directly from GitHub (please note that the runtime will be dependent on internet speed and stability).
 In the above case, ensure that 'github' is specified in line 17 (unless files are being retrieved locally, in which case use 'local' and specify their location in line 18)
@@ -14,7 +14,7 @@ Runtime may take up to 20 minutes. Progress can be tracked from the terminal.
 """
 
 # File Directories
-INPUT_FILES = 'github' # Replace 'github' with 'local' if using files on your local system and ensure correct directory for your files (line 18)
+INPUT_FILES = 'local' # Replace 'github' with 'local' if using files on your local system and ensure correct directory for your files (line 18)
 LOCAL_FILE_DIRECTORY = "C:/Users/ed_ba/OneDrive - The University of Manchester/Year 3/Project/finite_element_data/original_data/github_files/" # (if files are already on the local system)
 
 # Adjust the following directory to the location where you would like the files to be stored
@@ -52,18 +52,18 @@ def extract_info_values(info):
         # Return default values or handle as needed if an error occurs
         return None, None, None
     
-def process_dataframe(df, dimension, dataset_type):
+def process_dataframe(df, dimension):
     """
     Processes the DataFrame by: 
     - formatting headers, 
     - extracting input parameters, 
-    - calculating von Mises stress (for the von_mises set),
-    - dropping obsolete columns
+    - calculating von Mises stress,
+    - dropping obsolete 'info' column
     - filtering the data
     - and preparing for saving. 
     Returns the processed DataFrame.
     """
-    print(f'Processing {dataset_type} {dimension} data file')
+    print(f'Processing {dimension} data file...')
     df.columns = df.columns.str.strip()  # Remove unwanted spaces in the column headers
     
     extracted = df['info'].apply(extract_info_values)  # Extract the values from the 'info' column
@@ -79,27 +79,21 @@ def process_dataframe(df, dimension, dataset_type):
     df['travel_speed'] = pd.to_numeric(df['travel_speed'], errors='coerce')
     df['heat_input'] = pd.to_numeric(df['heat_input'], errors='coerce')
 
-    if dataset_type == 'von_mises': # For the von_mises set
     # Calculate and store von Mises stress values in a new column
-        df['von_mises'] = calculate_von_mises(
-            df['S11'], df['S22'], df['S33'],
-            df['S12'], df['S13'], df['S23']
-        )
-        
-        columns_to_drop = ['info', 'S11', 'S22', 'S33', 'S12', 'S13', 'S23'] # Select the 'info' column and the six stress columns to be dropped
+    df['von_mises'] = calculate_von_mises(
+        df['S11'], df['S22'], df['S33'],
+        df['S12'], df['S13'], df['S23']
+    )
 
-    elif dataset_type == 'full': # For the full set
-        columns_to_drop = ['info'] # Select the 'info' column to be dropped
-
-    if dimension == '2D': # For the 2D data files
+    if dimension == '2D': # For the 2D data file
         df = df[df["X"] == X_CROSS_SECTION_COORD] # Store only the data at the specified cross-section (in the YZ plane)
         df.drop(columns=['X'], inplace=True, errors='ignore') # Subsequently drop the 'X' column since each entry is just 0
 
     elif dimension == '3D': # For the 3D data files
         df = df[df["X"] != ' X']  # Filter out erroneous header rows hidden within the file
 
-    df.drop(columns=columns_to_drop, inplace=True) # Drop the specified columns
-    print('Success')
+    df.drop(columns='info', inplace=True) # Drop the 'info' column
+    print(f'Successfully processed {dimension} data file.')
     return df # Return the processed dataframe
 
 
@@ -117,7 +111,7 @@ def get_local_files():
         print(f'Retrieving file {i}/100')
         df = pd.read_csv(file_name, low_memory=False)  # Read the file data
         dfs.append(df) # Add the data to the new dataframe
-        print('Success')
+        print(f'file {i} retrieved successfully')
 
     combined_df = pd.concat(dfs, ignore_index=True) # Concatenate into a single dataframe
     return combined_df # Return the concatenated dataframe
@@ -145,7 +139,7 @@ def get_github_files():
             print(f'Attempting to retrieve file {i}/100')
             df = pd.read_csv(data, low_memory=False) # Read the data
             dfs.append(df) # Add the data to the new dataframe
-            print('Success')
+            print(f'file {i} retrieved successfully')
 
         # Error handling
         except requests.exceptions.HTTPError as err:
@@ -171,24 +165,24 @@ def create_dataset(INPUT_FILES):
     elif INPUT_FILES == 'github':
         df = get_github_files()
 
-    print('Files retrieved')
+    print('Files retrieved.')
 
-    # Specify the variations for the output files
+    # Specify the two output file variants
     dimensions = ['2D', '3D']
-    dataset_types = ['von_mises', 'full']
         
     print('Initialising data processing...')
 
-    # Process and save each of the four files
-    for dimension in dimensions: # For both 2D and 3D
-        for dataset_type in dataset_types: # For both 'von_mises' and 'full'
-            processed_df = process_dataframe(df.copy(), dimension, dataset_type) # Process the data
-            file_name = f"{OUTPUT_DIRECTORY}{dimension}_stress_field_{dataset_type}.csv" # Name the file
-            processed_df.to_csv(file_name, index=False) # Save the file
+    # Process and save a file for both 2D and 3D
+    for dimension in dimensions:
+        df_copy = df.copy() # Create a copy of the dataset so not to affect the second iteration
+        processed_df = process_dataframe(df_copy, dimension) # Process the data
+        print(f'Saving {dimension} .csv file...')
+        file_name = f"{OUTPUT_DIRECTORY}{dimension}_stress_field.csv" # Name the file
+        processed_df.to_csv(file_name, index=False) # Save the file
 
-            print(f'{dataset_type} {dimension} dataset created.')
+        print(f'{dimension} dataset created and saved.')
 
-    print('Done.')
+    print('End of programme.')
 
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------
